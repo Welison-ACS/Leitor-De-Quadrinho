@@ -1,0 +1,416 @@
+/* ============================================================
+   APP LEITOR
+   ============================================================ */
+
+.app-leitor {
+    position: fixed;
+
+    inset: 0;
+
+    z-index: 5000;
+
+    display: grid;
+
+    grid-template-rows:
+        auto
+        minmax(0, 1fr)
+        auto;
+
+    background: #050506;
+
+    overflow: hidden;
+}
+
+
+/* ============================================================
+   TOPBAR
+   ============================================================ */
+
+.leitor-topbar {
+    position: relative;
+
+    z-index: 30;
+
+    min-height: 58px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 12px;
+
+    padding:
+        max(8px, env(safe-area-inset-top))
+        12px
+        8px;
+
+    background: rgba(9, 10, 12, 0.92);
+
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+
+    transition:
+        transform 0.25s ease,
+        opacity 0.25s ease;
+}
+
+.leitor-botao {
+    width: 42px;
+    height: 42px;
+
+    flex: 0 0 auto;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 11px;
+
+    background: rgba(255, 255, 255, 0.06);
+
+    color: white;
+
+    font-size: 22px;
+
+    cursor: pointer;
+}
+
+.leitor-botao:hover {
+    background: rgba(255, 255, 255, 0.11);
+}
+
+.leitor-botao-voltar {
+    font-size: 25px;
+}
+
+.leitor-zoom-texto {
+    width: 60px;
+
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.leitor-titulo-area {
+    min-width: 0;
+
+    flex: 1;
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 2px;
+}
+
+.leitor-titulo-area strong {
+    overflow: hidden;
+
+    font-size: 13px;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.leitor-titulo-area span {
+    color: #9da3af;
+
+    font-size: 10px;
+}
+
+.leitor-topbar-acoes {
+    display: flex;
+
+    gap: 6px;
+}
+
+
+/* ============================================================
+   PALCO
+   ============================================================ */
+
+.leitor-palco {
+    position: relative;
+
+    min-width: 0;
+    min-height: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    overflow: hidden;
+
+    background:
+        radial-gradient(
+            circle at center,
+            #151515,
+            #050506 72%
+        );
+}
+
+.imagem-container {
+    position: absolute;
+
+    inset: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    overflow: hidden;
+
+    touch-action: none;
+}
+
+.imagem-pagina {
+    display: block;
+
+    max-width: 100%;
+    max-height: 100%;
+
+    object-fit: contain;
+
+    transform-origin: center center;
+
+    will-change: transform;
+
+    user-select: none;
+
+    cursor: grab;
+}
+
+.imagem-pagina:active {
+    cursor: grabbing;
+}
+
+
+/* ============================================================
+   CONTROLES LATERAIS
+   ============================================================ */
+
+.controle-lateral {
+    position: absolute;
+
+    top: 50%;
+
+    z-index: 20;
+
+    width: 54px;
+    height: 96px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    transform: translateY(-50%);
+
+    border-radius: 14px;
+
+    background: rgba(0, 0, 0, 0.38);
+
+    border: 1px solid rgba(255, 255, 255, 0.09);
+
+    color: rgba(255, 255, 255, 0.8);
+
+    font-size: 48px;
+    font-weight: 200;
+
+    cursor: pointer;
+
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+
+    transition:
+        background 0.15s ease,
+        opacity 0.15s ease;
+}
+
+.controle-lateral:hover {
+    background: rgba(0, 0, 0, 0.65);
+
+    color: white;
+}
+
+.controle-esquerda {
+    left: 12px;
+}
+
+.controle-direita {
+    right: 12px;
+}
+
+.controle-lateral:disabled {
+    opacity: 0.12;
+
+    pointer-events: none;
+}
+
+
+/* ============================================================
+   CARREGANDO
+   ============================================================ */
+
+.leitor-carregando {
+    position: absolute;
+
+    top: 50%;
+    left: 50%;
+
+    transform: translate(-50%, -50%);
+
+    padding: 12px 18px;
+
+    border-radius: 12px;
+
+    background: rgba(0, 0, 0, 0.65);
+
+    color: #d9dce2;
+
+    font-size: 12px;
+
+    pointer-events: none;
+}
+
+
+/* ============================================================
+   RODAPÉ
+   ============================================================ */
+
+.leitor-rodape {
+    position: relative;
+
+    z-index: 30;
+
+    min-height: 46px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 14px;
+
+    padding:
+        8px
+        16px
+        max(8px, env(safe-area-inset-bottom));
+
+    background: rgba(9, 10, 12, 0.92);
+
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+
+    transition:
+        transform 0.25s ease,
+        opacity 0.25s ease;
+}
+
+.leitor-rodape > span {
+    min-width: 90px;
+
+    color: #a8aeba;
+
+    font-size: 10px;
+}
+
+.barra-progresso {
+    height: 4px;
+
+    flex: 1;
+
+    overflow: hidden;
+
+    border-radius: 999px;
+
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.barra-progresso-preenchimento {
+    width: 0;
+    height: 100%;
+
+    border-radius: inherit;
+
+    background: var(--primaria);
+
+    transition: width 0.2s ease;
+}
+
+
+/* ============================================================
+   CONTROLES OCULTOS
+   ============================================================ */
+
+.app-leitor.controles-ocultos .leitor-topbar {
+    transform: translateY(-110%);
+
+    opacity: 0;
+
+    pointer-events: none;
+}
+
+.app-leitor.controles-ocultos .leitor-rodape {
+    transform: translateY(110%);
+
+    opacity: 0;
+
+    pointer-events: none;
+}
+
+.app-leitor.controles-ocultos .controle-lateral {
+    opacity: 0;
+
+    pointer-events: none;
+}
+
+
+/* ============================================================
+   MOBILE
+   ============================================================ */
+
+@media (max-width: 700px) {
+
+    .leitor-topbar {
+        gap: 8px;
+
+        min-height: 54px;
+
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+
+    .leitor-botao {
+        width: 40px;
+        height: 40px;
+    }
+
+    .leitor-topbar-acoes {
+        gap: 4px;
+    }
+
+    .controle-lateral {
+        display: none;
+    }
+
+    .leitor-rodape {
+        min-height: 42px;
+    }
+
+}
+
+
+/* ============================================================
+   MOBILE MUITO ESTREITO
+   ============================================================ */
+
+@media (max-width: 430px) {
+
+    .leitor-titulo-area span {
+        display: none;
+    }
+
+    .leitor-zoom-texto {
+        width: 48px;
+    }
+
+}

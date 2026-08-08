@@ -1,0 +1,83 @@
+<svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 600 900"
+>
+
+    <defs>
+
+        <linearGradient
+            id="bg"
+            x1="0"
+            y1="0"
+            x2="1"
+            y2="1"
+        >
+
+            <stop
+                offset="0%"
+                stop-color="#252a36"
+            />
+
+            <stop
+                offset="100%"
+                stop-color="#13161d"
+            />
+
+        </linearGradient>
+
+    </defs>
+
+
+    <rect
+        width="600"
+        height="900"
+        fill="url(#bg)"
+    />
+
+
+    <rect
+        x="155"
+        y="235"
+        width="290"
+        height="360"
+        rx="35"
+        fill="none"
+        stroke="#7289da"
+        stroke-width="22"
+        opacity="0.75"
+    />
+
+
+    <path
+        d="
+            M215 330
+            H385
+
+            M215 390
+            H385
+
+            M215 450
+            H340
+        "
+        fill="none"
+        stroke="#ffffff"
+        stroke-width="20"
+        stroke-linecap="round"
+        opacity="0.55"
+    />
+
+
+    <text
+        x="300"
+        y="690"
+        text-anchor="middle"
+        fill="#ffffff"
+        opacity="0.65"
+        font-family="Arial, sans-serif"
+        font-size="32"
+        font-weight="700"
+    >
+        QUADRINHO
+    </text>
+
+</svg>

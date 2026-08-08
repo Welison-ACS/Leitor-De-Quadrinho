@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes"
+    >
+
+    <meta name="theme-color" content="#111318">
+
+    <meta
+        name="description"
+        content="Leitor pessoal de quadrinhos digitais."
+    >
+
+    <title>Minha Biblioteca</title>
+
+    <link
+        rel="manifest"
+        href="./manifest.json"
+    >
+
+    <link
+        rel="icon"
+        href="./assets/icons/icon.svg"
+        type="image/svg+xml"
+    >
+
+    <link
+        rel="stylesheet"
+        href="./css/global.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="./css/biblioteca.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="./css/leitor.css"
+    >
+</head>
+
+<body>
+
+    <!-- ========================================================= -->
+    <!-- BIBLIOTECA                                                 -->
+    <!-- ========================================================= -->
+
+    <div
+        id="appBiblioteca"
+        class="app-biblioteca"
+    >
+
+        <header class="topbar">
+
+            <div class="topbar-identidade">
+
+                <div class="topbar-logo">
+                    <span>Q</span>
+                </div>
+
+                <div>
+
+                    <h1>
+                        Minha Biblioteca
+                    </h1>
+
+                    <p>
+                        Leitor de quadrinhos
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="topbar-acoes">
+
+                <button
+                    id="btnImportarQuadrinhos"
+                    class="btn btn-primary"
+                    type="button"
+                >
+                    + Importar quadrinhos
+                </button>
+
+            </div>
+
+        </header>
+
+
+        <main class="conteudo">
+
+            <!-- ================================================= -->
+            <!-- NAVEGAÇÃO DA BIBLIOTECA                           -->
+            <!-- ================================================= -->
+
+            <section class="biblioteca-navegacao">
+
+                <div class="biblioteca-navegacao-esquerda">
+
+                    <button
+                        id="btnVoltarCategoria"
+                        class="btn-voltar-categoria"
+                        type="button"
+                        hidden
+                    >
+                        ←
+                    </button>
+
+
+                    <div>
+
+                        <h2 id="tituloCategoriaAtual">
+                            Biblioteca
+                        </h2>
+
+                        <p id="contadorBiblioteca">
+                            Nenhuma biblioteca carregada
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div
+                    id="breadcrumbBiblioteca"
+                    class="breadcrumb-biblioteca"
+                >
+                </div>
+
+            </section>
+
+
+            <!-- ================================================= -->
+            <!-- VAZIO                                             -->
+            <!-- ================================================= -->
+
+            <section
+                id="estadoVazio"
+                class="estado-vazio"
+            >
+
+                <div class="estado-vazio-icone">
+                    📚
+                </div>
+
+                <h2>
+                    Sua biblioteca está vazia
+                </h2>
+
+                <p>
+                    Selecione sua pasta principal de quadrinhos.
+                    O aplicativo identificará automaticamente séries,
+                    subpastas, histórias, arquivos ZIP e CBZ.
+                </p>
+
+                <button
+                    id="btnImportarVazio"
+                    class="btn btn-primary btn-grande"
+                    type="button"
+                >
+                    Importar quadrinhos
+                </button>
+
+            </section>
+
+
+            <!-- ================================================= -->
+            <!-- GRID                                              -->
+            <!-- ================================================= -->
+
+            <section
+                id="bibliotecaGrid"
+                class="biblioteca-grid"
+                hidden
+            >
+            </section>
+
+        </main>
+
+    </div>
+
+
+    <!-- ========================================================= -->
+    <!-- LEITOR                                                     -->
+    <!-- ========================================================= -->
+
+    <div
+        id="appLeitor"
+        class="app-leitor"
+        hidden
+    >
+
+        <header
+            id="leitorTopbar"
+            class="leitor-topbar"
+        >
+
+            <button
+                id="btnFecharLeitor"
+                class="leitor-botao leitor-botao-voltar"
+                type="button"
+                aria-label="Voltar para biblioteca"
+            >
+                ←
+            </button>
+
+
+            <div class="leitor-titulo-area">
+
+                <strong id="leitorTitulo">
+                    Quadrinho
+                </strong>
+
+                <span id="leitorPaginaTopo">
+                    1 / 1
+                </span>
+
+            </div>
+
+
+            <div class="leitor-topbar-acoes">
+
+                <button
+                    id="btnZoomMenos"
+                    class="leitor-botao"
+                    type="button"
+                    title="Diminuir zoom"
+                >
+                    −
+                </button>
+
+                <button
+                    id="btnResetZoom"
+                    class="leitor-botao leitor-zoom-texto"
+                    type="button"
+                    title="Restaurar zoom"
+                >
+                    100%
+                </button>
+
+                <button
+                    id="btnZoomMais"
+                    class="leitor-botao"
+                    type="button"
+                    title="Aumentar zoom"
+                >
+                    +
+                </button>
+
+            </div>
+
+        </header>
+
+
+        <main
+            id="leitorPalco"
+            class="leitor-palco"
+        >
+
+            <button
+                id="btnPaginaAnterior"
+                class="controle-lateral controle-esquerda"
+                type="button"
+                aria-label="Página anterior"
+            >
+                ‹
+            </button>
+
+
+            <div
+                id="imagemContainer"
+                class="imagem-container"
+            >
+
+                <img
+                    id="imagemPagina"
+                    class="imagem-pagina"
+                    alt="Página do quadrinho"
+                    draggable="false"
+                >
+
+
+                <div
+                    id="leitorCarregando"
+                    class="leitor-carregando"
+                    hidden
+                >
+                    Carregando página...
+                </div>
+
+            </div>
+
+
+            <button
+                id="btnProximaPagina"
+                class="controle-lateral controle-direita"
+                type="button"
+                aria-label="Próxima página"
+            >
+                ›
+            </button>
+
+        </main>
+
+
+        <footer
+            id="leitorRodape"
+            class="leitor-rodape"
+        >
+
+            <span id="leitorPaginaRodape">
+                Página 1 de 1
+            </span>
+
+
+            <div class="barra-progresso">
+
+                <div
+                    id="barraProgressoLeitura"
+                    class="barra-progresso-preenchimento"
+                >
+                </div>
+
+            </div>
+
+        </footer>
+
+    </div>
+
+
+    <!-- ========================================================= -->
+    <!-- ÚNICO INPUT                                                -->
+    <!-- ========================================================= -->
+
+    <input
+        id="inputBiblioteca"
+        type="file"
+        webkitdirectory
+        directory
+        multiple
+        hidden
+    >
+
+
+    <!-- ========================================================= -->
+    <!-- MODAL                                                      -->
+    <!-- ========================================================= -->
+
+    <div
+        id="modalImportando"
+        class="modal-overlay"
+        hidden
+    >
+
+        <div class="modal-importando">
+
+            <div class="spinner"></div>
+
+            <h2>
+                Lendo biblioteca
+            </h2>
+
+            <p id="textoImportacao">
+                Analisando arquivos...
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <script
+        type="module"
+        src="./js/app.js"
+    ></script>
+
+</body>
+</html>
