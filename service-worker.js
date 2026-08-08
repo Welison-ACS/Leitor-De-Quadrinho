@@ -1,5 +1,5 @@
 const CACHE_NAME =
-    "leitor-quadrinhos-v3";
+    "leitor-quadrinhos-v4";
 
 
 const APP_FILES = [
