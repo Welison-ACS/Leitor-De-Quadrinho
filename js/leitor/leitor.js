@@ -5,7 +5,8 @@ import {
 } from "../biblioteca/importador.js";
 
 import {
-    salvarProgresso
+    salvarProgresso,
+    obterMetadados
 } from "../armazenamento/storage.js";
 
 import {
@@ -345,6 +346,9 @@ export async function abrirLeitor(
 
 
     titulo.textContent =
+        obterMetadados(
+            quadrinho.id
+        ).nomePersonalizado ||
         quadrinho.titulo;
 
 

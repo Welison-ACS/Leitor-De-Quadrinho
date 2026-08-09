@@ -7,6 +7,12 @@ import {
     extrairEntradaZip
 } from "./zip.js";
 
+import {
+    obterTotalPaginasPdf,
+    renderizarPaginaPdf,
+    obterCapaPdf
+} from "./pdf.js";
+
 
 // ============================================================
 // FORMATOS
@@ -31,11 +37,63 @@ const EXTENSOES_COMPACTADAS =
     ]);
 
 
+const NOMES_RAIZ_BIBLIOTECA =
+    new Set([
+        "quadrinhos",
+        "quadrinho",
+        "hq",
+        "hqs",
+        "comics",
+        "biblioteca",
+        "minha biblioteca",
+        "meus quadrinhos",
+        "biblioteca de quadrinhos"
+    ]);
+
+
 // ============================================================
-// ESTADO
+// ORDENAÇÃO NATURAL SEGURA
+// ============================================================
+
+const COMPARADOR_NATURAL =
+    new Intl.Collator(
+        "pt-BR",
+        {
+            numeric: true,
+            sensitivity: "base"
+        }
+    );
+
+
+function compararNatural(
+    valorA,
+    valorB
+) {
+
+    return COMPARADOR_NATURAL.compare(
+        String(valorA ?? ""),
+        String(valorB ?? "")
+    );
+}
+
+
+// ============================================================
+// ESTADO DA SESSÃO
 // ============================================================
 
 let bibliotecaRaiz =
+    null;
+
+
+let nomeRaizSelecionada =
+    "Quadrinhos";
+
+
+let raizEhBiblioteca =
+    true;
+
+
+let categoriaBase =
     null;
 
 
@@ -48,7 +106,7 @@ const categorias =
 
 
 // ============================================================
-// IMPORTAR BIBLIOTECA COMPLETA
+// IMPORTAR BIBLIOTECA
 // ============================================================
 
 export async function importarBiblioteca(
@@ -74,111 +132,71 @@ export async function importarBiblioteca(
 
 
     quadrinhosAtivos.clear();
-
     categorias.clear();
 
 
     atualizarMensagem(
         callbackProgresso,
-        "Analisando estrutura de pastas..."
+        "Analisando estrutura da biblioteca..."
     );
 
 
-    // ========================================================
-    // DESCOBRIR PASTA RAIZ
-    // ========================================================
-
-    const primeiroCaminho =
-        normalizarCaminho(
-            arquivos[0].webkitRelativePath ||
-            arquivos[0].name
+    nomeRaizSelecionada =
+        descobrirNomeRaiz(
+            arquivos
         );
 
 
-    const primeiraParte =
-        primeiroCaminho
-            .split("/")
-            .filter(Boolean)[0];
+    raizEhBiblioteca =
+        ehNomeGenericoBiblioteca(
+            nomeRaizSelecionada
+        );
 
 
-    const nomeRaiz =
-        primeiraParte ||
-        "Quadrinhos";
+    criarEstruturaRaiz();
 
-
-    // ========================================================
-    // RAIZ
-    // ========================================================
-
-    bibliotecaRaiz = {
-
-        id:
-            "categoria:raiz",
-
-        tipo:
-            "categoria",
-
-        nome:
-            nomeRaiz,
-
-        caminho:
-            "",
-
-        pai:
-            null,
-
-        filhos:
-            []
-
-    };
-
-
-    categorias.set(
-        "",
-        bibliotecaRaiz
-    );
-
-
-    // ========================================================
-    // AGRUPAR IMAGENS POR PASTA
-    // ========================================================
 
     const imagensPorPasta =
         new Map();
 
 
-    const arquivosCompactados =
+    const arquivosLeitura =
         [];
 
+
+    const primeirasPastas =
+        new Set();
+
+
+    // ========================================================
+    // CLASSIFICAR ARQUIVOS
+    // ========================================================
 
     for (
         const arquivo
         of arquivos
     ) {
 
-        const caminhoCompleto =
-            normalizarCaminho(
-                arquivo.webkitRelativePath ||
-                arquivo.name
+        const caminhoRelativo =
+            obterCaminhoRelativoSemRaiz(
+                arquivo,
+                nomeRaizSelecionada
             );
 
 
-        let partes =
-            caminhoCompleto
-                .split("/")
-                .filter(Boolean);
-
-
-        // Remove a pasta raiz escolhida.
         if (
-            partes[0] ===
-            nomeRaiz
+            !caminhoRelativo
         ) {
 
-            partes =
-                partes.slice(1);
+            continue;
 
         }
+
+
+        const partes =
+            caminhoRelativo
+                .split("/")
+                .filter(Boolean);
 
 
         if (
@@ -207,6 +225,17 @@ export async function importarBiblioteca(
             diretorios.join(
                 "/"
             );
+
+
+        if (
+            diretorios.length > 0
+        ) {
+
+            primeirasPastas.add(
+                diretorios[0]
+            );
+
+        }
 
 
         if (
@@ -243,20 +272,24 @@ export async function importarBiblioteca(
         }
 
 
-        if (
-            ehCompactado(
+        const extensao =
+            obterExtensao(
                 nomeArquivo
-            )
+            );
+
+
+        if (
+            EXTENSOES_COMPACTADAS.has(
+                extensao
+            ) ||
+            extensao === "pdf"
         ) {
 
-            arquivosCompactados.push({
-
+            arquivosLeitura.push({
                 arquivo,
-
                 pastaRelativa,
-
-                nomeArquivo
-
+                nomeArquivo,
+                formato: extensao
             });
 
         }
@@ -265,43 +298,35 @@ export async function importarBiblioteca(
 
 
     // ========================================================
-    // DESCOBRIR QUAIS PASTAS PRECISAM VIRAR CATEGORIA
+    // DESCOBRIR CATEGORIAS
     // ========================================================
 
     const caminhosCategorias =
-        new Set();
+        new Set([
+            ""
+        ]);
 
 
-    // --------------------------------------------------------
-    // Pastas que são pais de histórias em imagens.
-    // --------------------------------------------------------
-
+    // Pastas que são pais de uma história em imagens.
     for (
         const pastaHistoria
         of imagensPorPasta.keys()
     ) {
 
-        const pai =
-            obterCaminhoPai(
-                pastaHistoria
-            );
-
-
         adicionarCaminhoEAncestrais(
             caminhosCategorias,
-            pai
+            obterCaminhoPai(
+                pastaHistoria
+            )
         );
 
     }
 
 
-    // --------------------------------------------------------
-    // Pastas que contêm ZIP / CBZ.
-    // --------------------------------------------------------
-
+    // Pastas que contêm ZIP, CBZ ou PDF.
     for (
         const item
-        of arquivosCompactados
+        of arquivosLeitura
     ) {
 
         adicionarCaminhoEAncestrais(
@@ -312,23 +337,62 @@ export async function importarBiblioteca(
     }
 
 
-    // ========================================================
-    // CASO ESPECIAL:
-    //
-    // Se uma pasta possui imagens diretas E também precisa
-    // funcionar como categoria porque contém histórias abaixo,
-    // ela continuará existindo como categoria.
-    // ========================================================
+    // Quando a pasta escolhida é a biblioteca geral, o primeiro
+    // nível é SEMPRE tratado como obra. Isso impede que Superman,
+    // Batman, Kim Possible etc. sejam achatados na tela principal.
+    if (
+        raizEhBiblioteca
+    ) {
 
+        for (
+            const pasta
+            of primeirasPastas
+        ) {
+
+            adicionarCaminhoEAncestrais(
+                caminhosCategorias,
+                pasta
+            );
+
+        }
+
+    }
+
+
+    // Uma pasta que contém páginas e também contém outras histórias
+    // continua sendo categoria e ganha uma "Leitura principal".
     for (
         const pastaHistoria
         of imagensPorPasta.keys()
     ) {
 
+        const prefixo =
+            pastaHistoria
+                ? pastaHistoria + "/"
+                : "";
+
+
+        const possuiDescendentes =
+            Array.from(
+                imagensPorPasta.keys()
+            ).some(
+                outra =>
+                    outra !== pastaHistoria &&
+                    outra.startsWith(
+                        prefixo
+                    )
+            ) ||
+            arquivosLeitura.some(
+                item =>
+                    item.pastaRelativa !== pastaHistoria &&
+                    item.pastaRelativa.startsWith(
+                        prefixo
+                    )
+            );
+
+
         if (
-            caminhosCategorias.has(
-                pastaHistoria
-            )
+            possuiDescendentes
         ) {
 
             adicionarCaminhoEAncestrais(
@@ -340,10 +404,6 @@ export async function importarBiblioteca(
 
     }
 
-
-    // ========================================================
-    // CRIAR CATEGORIAS
-    // ========================================================
 
     const caminhosOrdenados =
         Array
@@ -372,7 +432,7 @@ export async function importarBiblioteca(
 
 
     // ========================================================
-    // CRIAR HISTÓRIAS QUE SÃO PASTAS DE IMAGENS
+    // HISTÓRIAS BASEADAS EM PASTAS DE IMAGENS
     // ========================================================
 
     let historiasCriadas =
@@ -402,41 +462,20 @@ export async function importarBiblioteca(
 
 
         let categoriaPai;
-
-
         let titulo;
 
-
-        // ----------------------------------------------------
-        // Imagens diretamente na raiz escolhida.
-        // ----------------------------------------------------
 
         if (
             pastaHistoria === ""
         ) {
 
             categoriaPai =
-                bibliotecaRaiz;
-
+                categoriaBase;
 
             titulo =
-                nomeRaiz;
+                "Leitura principal";
 
         }
-
-        // ----------------------------------------------------
-        // A própria pasta também contém filhos.
-        //
-        // Exemplo:
-        //
-        // Batman/
-        // ├── 001.jpg
-        // └── Volume 02/
-        //
-        // Nesse caso Batman continua categoria e criamos
-        // "Leitura principal" dentro dela.
-        // ----------------------------------------------------
-
         else if (
             caminhosCategorias.has(
                 pastaHistoria
@@ -448,36 +487,18 @@ export async function importarBiblioteca(
                     pastaHistoria
                 );
 
-
             titulo =
                 "Leitura principal";
 
         }
-
-        // ----------------------------------------------------
-        // Caso normal:
-        //
-        // Superman/
-        // └── História 01/
-        //     ├── 001.jpg
-        //     └── 002.jpg
-        //
-        // História 01 vira quadrinho.
-        // ----------------------------------------------------
-
         else {
-
-            const pai =
-                obterCaminhoPai(
-                    pastaHistoria
-                );
-
 
             categoriaPai =
                 garantirCategoria(
-                    pai
+                    obterCaminhoPai(
+                        pastaHistoria
+                    )
                 );
-
 
             titulo =
                 obterNomeFinal(
@@ -487,72 +508,34 @@ export async function importarBiblioteca(
         }
 
 
-        const assinatura =
-            criarAssinaturaPasta(
-                pastaHistoria,
-                imagens
+        const caminhoIdentidade =
+            obterCaminhoIdentidade(
+                combinarCaminho(
+                    pastaHistoria,
+                    "@imagens"
+                )
             );
 
 
-        const id =
-            gerarIdEstavel(
-                assinatura
-            );
+        const quadrinho =
+            criarQuadrinhoBase({
+                formato: "pasta",
+                titulo,
+                caminho: pastaHistoria,
+                caminhoIdentidade,
+                totalPaginas: imagens.length,
+                paginas: imagens,
+                categoriaPai,
+                idLegado: criarIdLegadoPasta(
+                    pastaHistoria,
+                    imagens
+                )
+            });
 
 
-        const progresso =
-            obterProgresso(
-                id
-            );
-
-
-        const quadrinho = {
-
-            id,
-
-            tipo:
-                "quadrinho",
-
-            formato:
-                "pasta",
-
-            titulo,
-
-            caminho:
-                pastaHistoria,
-
-            totalPaginas:
-                imagens.length,
-
-            paginas:
-                imagens,
-
-            iniciado:
-                progresso.iniciado,
-
-            paginaAtual:
-                limitarPagina(
-                    progresso.paginaAtual,
-                    imagens.length
-                ),
-
-            ultimaLeitura:
-                progresso.ultimaLeitura,
-
-            pai:
-                categoriaPai
-
-        };
-
-
-        quadrinhosAtivos.set(
-            id,
-            quadrinho
-        );
-
-
-        categoriaPai.filhos.push(
-            quadrinho
+        registrarQuadrinho(
+            quadrinho,
+            categoriaPai
         );
 
 
@@ -562,53 +545,28 @@ export async function importarBiblioteca(
 
 
     // ========================================================
-    // CRIAR ZIP / CBZ
+    // ZIP / CBZ / PDF
     // ========================================================
 
     for (
         let indice = 0;
-        indice <
-            arquivosCompactados.length;
+        indice < arquivosLeitura.length;
         indice++
     ) {
 
         const item =
-            arquivosCompactados[
+            arquivosLeitura[
                 indice
             ];
 
 
         atualizarMensagem(
             callbackProgresso,
-            `Lendo arquivo ${
-                indice + 1
-            } de ${
-                arquivosCompactados.length
-            }: ${item.nomeArquivo}`
+            `Lendo ${indice + 1} de ${arquivosLeitura.length}: ${item.nomeArquivo}`
         );
 
 
         try {
-
-            const entradas =
-                await listarImagensZip(
-                    item.arquivo
-                );
-
-
-            if (
-                entradas.length === 0
-            ) {
-
-                console.warn(
-                    `Ignorado: ${item.nomeArquivo} não possui imagens.`
-                );
-
-
-                continue;
-
-            }
-
 
             const categoriaPai =
                 garantirCategoria(
@@ -616,83 +574,97 @@ export async function importarBiblioteca(
                 );
 
 
-            const assinatura =
-                criarAssinaturaCompactado(
+            const caminho =
+                combinarCaminho(
                     item.pastaRelativa,
-                    item.arquivo
+                    item.nomeArquivo
                 );
 
 
-            const id =
-                gerarIdEstavel(
-                    assinatura
+            const caminhoIdentidade =
+                obterCaminhoIdentidade(
+                    caminho
                 );
 
 
-            const progresso =
-                obterProgresso(
-                    id
-                );
+            let quadrinho;
 
 
-            const quadrinho = {
+            if (
+                item.formato === "pdf"
+            ) {
 
-                id,
-
-                tipo:
-                    "quadrinho",
-
-                formato:
-                    obterExtensao(
-                        item.nomeArquivo
-                    ),
-
-                titulo:
-                    removerExtensao(
-                        item.nomeArquivo
-                    ),
-
-                caminho:
-                    combinarCaminho(
-                        item.pastaRelativa,
-                        item.nomeArquivo
-                    ),
-
-                totalPaginas:
-                    entradas.length,
-
-                paginas:
-                    entradas,
-
-                arquivoCompactado:
-                    item.arquivo,
-
-                iniciado:
-                    progresso.iniciado,
-
-                paginaAtual:
-                    limitarPagina(
-                        progresso.paginaAtual,
-                        entradas.length
-                    ),
-
-                ultimaLeitura:
-                    progresso.ultimaLeitura,
-
-                pai:
-                    categoriaPai
-
-            };
+                const totalPaginas =
+                    await obterTotalPaginasPdf(
+                        item.arquivo
+                    );
 
 
-            quadrinhosAtivos.set(
-                id,
-                quadrinho
-            );
+                if (
+                    totalPaginas <= 0
+                ) {
+
+                    continue;
+
+                }
 
 
-            categoriaPai.filhos.push(
-                quadrinho
+                quadrinho =
+                    criarQuadrinhoBase({
+                        formato: "pdf",
+                        titulo: removerExtensao(
+                            item.nomeArquivo
+                        ),
+                        caminho,
+                        caminhoIdentidade,
+                        totalPaginas,
+                        paginas: null,
+                        arquivoPdf: item.arquivo,
+                        categoriaPai
+                    });
+
+            }
+            else {
+
+                const entradas =
+                    await listarImagensZip(
+                        item.arquivo
+                    );
+
+
+                if (
+                    entradas.length === 0
+                ) {
+
+                    continue;
+
+                }
+
+
+                quadrinho =
+                    criarQuadrinhoBase({
+                        formato: item.formato,
+                        titulo: removerExtensao(
+                            item.nomeArquivo
+                        ),
+                        caminho,
+                        caminhoIdentidade,
+                        totalPaginas: entradas.length,
+                        paginas: entradas,
+                        arquivoCompactado: item.arquivo,
+                        categoriaPai,
+                        idLegado: criarIdLegadoCompactado(
+                            item.pastaRelativa,
+                            item.arquivo
+                        )
+                    });
+
+            }
+
+
+            registrarQuadrinho(
+                quadrinho,
+                categoriaPai
             );
 
 
@@ -711,27 +683,13 @@ export async function importarBiblioteca(
     }
 
 
-    // ========================================================
-    // LIMPAR CATEGORIAS VAZIAS
-    // ========================================================
-
     removerCategoriasVazias(
         bibliotecaRaiz
     );
 
 
-    // ========================================================
-    // ORDENAR TUDO
-    // ========================================================
-
     ordenarArvore(
         bibliotecaRaiz
-    );
-
-
-    atualizarMensagem(
-        callbackProgresso,
-        `${historiasCriadas} histórias encontradas.`
     );
 
 
@@ -740,10 +698,16 @@ export async function importarBiblioteca(
     ) {
 
         throw new Error(
-            "Nenhum quadrinho foi encontrado dentro da pasta selecionada."
+            "Nenhum quadrinho compatível foi encontrado."
         );
 
     }
+
+
+    atualizarMensagem(
+        callbackProgresso,
+        `${historiasCriadas} histórias encontradas.`
+    );
 
 
     return bibliotecaRaiz;
@@ -751,18 +715,162 @@ export async function importarBiblioteca(
 
 
 // ============================================================
-// OBTER RAIZ
+// RAIZ / CATEGORIAS / QUADRINHOS
 // ============================================================
+
+function criarEstruturaRaiz() {
+
+    if (
+        raizEhBiblioteca
+    ) {
+
+        bibliotecaRaiz = {
+            id: "categoria:raiz",
+            tipo: "categoria",
+            nome: nomeRaizSelecionada,
+            caminho: "",
+            pai: null,
+            filhos: [],
+            virtual: true
+        };
+
+
+        categoriaBase =
+            bibliotecaRaiz;
+
+
+        categorias.set(
+            "",
+            categoriaBase
+        );
+
+
+        return;
+
+    }
+
+
+    bibliotecaRaiz = {
+        id: "categoria:raiz",
+        tipo: "categoria",
+        nome: "Biblioteca",
+        caminho: "__biblioteca__",
+        pai: null,
+        filhos: [],
+        virtual: true
+    };
+
+
+    categoriaBase = {
+        id: gerarIdCategoria(
+            nomeRaizSelecionada
+        ),
+        tipo: "categoria",
+        nome: nomeRaizSelecionada,
+        caminho: "",
+        pai: bibliotecaRaiz,
+        filhos: [],
+        obraRaizSelecionada: true
+    };
+
+
+    bibliotecaRaiz.filhos.push(
+        categoriaBase
+    );
+
+
+    categorias.set(
+        "",
+        categoriaBase
+    );
+}
+
+
+function criarQuadrinhoBase({
+    formato,
+    titulo,
+    caminho,
+    caminhoIdentidade,
+    totalPaginas,
+    paginas,
+    arquivoCompactado = null,
+    arquivoPdf = null,
+    categoriaPai,
+    idLegado = null
+}) {
+
+    const id =
+        gerarIdEstavel(
+            "quadrinho|" +
+            caminhoIdentidade
+        );
+
+
+    const progressoNovo =
+        obterProgresso(
+            id
+        );
+
+
+    const progressoLegado =
+        !progressoNovo.iniciado &&
+        idLegado
+            ? obterProgresso(
+                idLegado
+            )
+            : null;
+
+
+    const progresso =
+        progressoLegado?.iniciado
+            ? progressoLegado
+            : progressoNovo;
+
+
+    return {
+        id,
+        tipo: "quadrinho",
+        formato,
+        titulo,
+        caminho,
+        caminhoIdentidade,
+        totalPaginas,
+        paginas,
+        arquivoCompactado,
+        arquivoPdf,
+        iniciado: progresso.iniciado,
+        paginaAtual: limitarPagina(
+            progresso.paginaAtual,
+            totalPaginas
+        ),
+        ultimaLeitura: progresso.ultimaLeitura,
+        pai: categoriaPai
+    };
+}
+
+
+function registrarQuadrinho(
+    quadrinho,
+    categoriaPai
+) {
+
+    quadrinhosAtivos.set(
+        quadrinho.id,
+        quadrinho
+    );
+
+
+    categoriaPai.filhos.push(
+        quadrinho
+    );
+}
+
 
 export function obterBibliotecaRaiz() {
 
     return bibliotecaRaiz;
 }
 
-
-// ============================================================
-// OBTER CATEGORIA
-// ============================================================
 
 export function obterCategoria(
     id
@@ -784,53 +892,43 @@ export function obterCategoria(
 }
 
 
-// ============================================================
-// OBTER QUADRINHO
-// ============================================================
-
 export function obterQuadrinhoAtivo(
     quadrinhoId
 ) {
 
-    return (
-        quadrinhosAtivos.get(
-            quadrinhoId
-        ) ||
-        null
-    );
+    return quadrinhosAtivos.get(
+        quadrinhoId
+    ) || null;
 }
 
 
-// ============================================================
-// OBTER PRIMEIRO QUADRINHO DE UM NÓ
-// ============================================================
+export function listarQuadrinhosAtivos() {
+
+    return Array.from(
+        quadrinhosAtivos.values()
+    );
+}
+
 
 export function obterPrimeiroQuadrinho(
     no
 ) {
 
-    if (
-        !no
-    ) {
-
+    if (!no) {
         return null;
-
     }
 
 
     if (
-        no.tipo ===
-        "quadrinho"
+        no.tipo === "quadrinho"
     ) {
-
         return no;
-
     }
 
 
     for (
         const filho
-        of no.filhos
+        of no.filhos || []
     ) {
 
         const resultado =
@@ -839,12 +937,8 @@ export function obterPrimeiroQuadrinho(
             );
 
 
-        if (
-            resultado
-        ) {
-
+        if (resultado) {
             return resultado;
-
         }
 
     }
@@ -854,34 +948,25 @@ export function obterPrimeiroQuadrinho(
 }
 
 
-// ============================================================
-// CONTAR QUADRINHOS
-// ============================================================
-
 export function contarQuadrinhos(
     no
 ) {
 
-    if (
-        !no
-    ) {
-
+    if (!no) {
         return 0;
-
     }
 
 
     if (
-        no.tipo ===
-        "quadrinho"
+        no.tipo === "quadrinho"
     ) {
-
         return 1;
-
     }
 
 
-    return no.filhos.reduce(
+    return (
+        no.filhos || []
+    ).reduce(
         (
             total,
             filho
@@ -896,7 +981,7 @@ export function contarQuadrinhos(
 
 
 // ============================================================
-// OBTER BLOB DA PÁGINA
+// PÁGINAS / CAPAS
 // ============================================================
 
 export async function obterBlobPagina(
@@ -910,9 +995,7 @@ export async function obterBlobPagina(
         );
 
 
-    if (
-        !quadrinho
-    ) {
+    if (!quadrinho) {
 
         throw new Error(
             "Quadrinho não disponível nesta sessão."
@@ -923,8 +1006,7 @@ export async function obterBlobPagina(
 
     if (
         indice < 0 ||
-        indice >=
-            quadrinho.totalPaginas
+        indice >= quadrinho.totalPaginas
     ) {
 
         throw new Error(
@@ -934,13 +1016,8 @@ export async function obterBlobPagina(
     }
 
 
-    // ========================================================
-    // PASTA NORMAL
-    // ========================================================
-
     if (
-        quadrinho.formato ===
-        "pasta"
+        quadrinho.formato === "pasta"
     ) {
 
         return quadrinho.paginas[
@@ -950,15 +1027,9 @@ export async function obterBlobPagina(
     }
 
 
-    // ========================================================
-    // ZIP / CBZ
-    // ========================================================
-
     if (
-        quadrinho.formato ===
-            "zip" ||
-        quadrinho.formato ===
-            "cbz"
+        quadrinho.formato === "zip" ||
+        quadrinho.formato === "cbz"
     ) {
 
         return await extrairEntradaZip(
@@ -971,15 +1042,56 @@ export async function obterBlobPagina(
     }
 
 
+    if (
+        quadrinho.formato === "pdf"
+    ) {
+
+        return await renderizarPaginaPdf(
+            quadrinho.arquivoPdf,
+            indice
+        );
+
+    }
+
+
     throw new Error(
         "Formato de quadrinho não reconhecido."
     );
 }
 
 
-// ============================================================
-// ATUALIZAR ESTADO
-// ============================================================
+export async function obterBlobCapaQuadrinho(
+    quadrinhoId
+) {
+
+    const quadrinho =
+        obterQuadrinhoAtivo(
+            quadrinhoId
+        );
+
+
+    if (!quadrinho) {
+        return null;
+    }
+
+
+    if (
+        quadrinho.formato === "pdf"
+    ) {
+
+        return await obterCapaPdf(
+            quadrinho.arquivoPdf
+        );
+
+    }
+
+
+    return await obterBlobPagina(
+        quadrinhoId,
+        0
+    );
+}
+
 
 export function atualizarEstadoLeitura(
     quadrinhoId,
@@ -992,12 +1104,8 @@ export function atualizarEstadoLeitura(
         );
 
 
-    if (
-        !quadrinho
-    ) {
-
+    if (!quadrinho) {
         return;
-
     }
 
 
@@ -1015,7 +1123,7 @@ export function atualizarEstadoLeitura(
 
 
 // ============================================================
-// GARANTIR CATEGORIA
+// CATEGORIAS
 // ============================================================
 
 function garantirCategoria(
@@ -1032,7 +1140,7 @@ function garantirCategoria(
         caminho === ""
     ) {
 
-        return bibliotecaRaiz;
+        return categoriaBase;
 
     }
 
@@ -1063,26 +1171,18 @@ function garantirCategoria(
 
 
     const categoria = {
-
-        id:
-            "categoria:" +
-            caminho,
-
-        tipo:
-            "categoria",
-
-        nome:
-            obterNomeFinal(
+        id: gerarIdCategoria(
+            obterCaminhoIdentidade(
                 caminho
-            ),
-
+            )
+        ),
+        tipo: "categoria",
+        nome: obterNomeFinal(
+            caminho
+        ),
         caminho,
-
         pai,
-
-        filhos:
-            []
-
+        filhos: []
     };
 
 
@@ -1101,37 +1201,27 @@ function garantirCategoria(
 }
 
 
-// ============================================================
-// CATEGORIA POR ID
-// ============================================================
-
 function procurarCategoriaPorId(
     categoria,
     id
 ) {
 
     if (
-        categoria.id ===
-        id
+        categoria.id === id
     ) {
-
         return categoria;
-
     }
 
 
     for (
         const filho
-        of categoria.filhos
+        of categoria.filhos || []
     ) {
 
         if (
-            filho.tipo !==
-            "categoria"
+            filho.tipo !== "categoria"
         ) {
-
             continue;
-
         }
 
 
@@ -1142,12 +1232,8 @@ function procurarCategoriaPorId(
             );
 
 
-        if (
-            resultado
-        ) {
-
+        if (resultado) {
             return resultado;
-
         }
 
     }
@@ -1157,25 +1243,20 @@ function procurarCategoriaPorId(
 }
 
 
-// ============================================================
-// REMOVER CATEGORIAS VAZIAS
-// ============================================================
-
 function removerCategoriasVazias(
     categoria
 ) {
 
     categoria.filhos =
-        categoria.filhos.filter(
+        (
+            categoria.filhos || []
+        ).filter(
             filho => {
 
                 if (
-                    filho.tipo ===
-                    "quadrinho"
+                    filho.tipo === "quadrinho"
                 ) {
-
                     return true;
-
                 }
 
 
@@ -1184,23 +1265,26 @@ function removerCategoriasVazias(
                 );
 
 
-                return (
-                    filho.filhos.length >
-                    0
-                );
+                return filho.filhos.length > 0;
 
             }
         );
 }
 
 
-// ============================================================
-// ORDENAR ÁRVORE
-// ============================================================
-
 function ordenarArvore(
     categoria
 ) {
+
+    if (
+        !categoria ||
+        !Array.isArray(
+            categoria.filhos
+        )
+    ) {
+        return;
+    }
+
 
     categoria.filhos.sort(
         (
@@ -1208,27 +1292,40 @@ function ordenarArvore(
             b
         ) => {
 
-            // Categorias primeiro.
+            const tipoA =
+                a?.tipo || "";
+
+            const tipoB =
+                b?.tipo || "";
+
+
             if (
-                a.tipo !==
-                b.tipo
+                tipoA !== tipoB
             ) {
 
-                return a.tipo ===
-                    "categoria"
-                    ? -1
-                    : 1;
+                if (
+                    tipoA === "categoria"
+                ) {
+                    return -1;
+                }
+
+
+                if (
+                    tipoB === "categoria"
+                ) {
+                    return 1;
+                }
 
             }
 
 
-            return a.nome.localeCompare(
-                b.nome,
-                undefined,
-                {
-                    numeric: true,
-                    sensitivity: "base"
-                }
+            return compararNatural(
+                tipoA === "categoria"
+                    ? a?.nome
+                    : a?.titulo,
+                tipoB === "categoria"
+                    ? b?.nome
+                    : b?.titulo
             );
 
         }
@@ -1241,8 +1338,7 @@ function ordenarArvore(
     ) {
 
         if (
-            filho.tipo ===
-            "categoria"
+            filho?.tipo === "categoria"
         ) {
 
             ordenarArvore(
@@ -1256,8 +1352,106 @@ function ordenarArvore(
 
 
 // ============================================================
-// ADICIONAR CAMINHO + PAIS
+// CAMINHOS / NOMES
 // ============================================================
+
+function descobrirNomeRaiz(
+    arquivos
+) {
+
+    const primeiro =
+        arquivos.find(
+            arquivo =>
+                arquivo?.webkitRelativePath ||
+                arquivo?.name
+        );
+
+
+    const caminho =
+        normalizarCaminho(
+            primeiro?.webkitRelativePath ||
+            primeiro?.name ||
+            "Quadrinhos"
+        );
+
+
+    return caminho
+        .split("/")
+        .filter(Boolean)[0] ||
+        "Quadrinhos";
+}
+
+
+function obterCaminhoRelativoSemRaiz(
+    arquivo,
+    raiz
+) {
+
+    const caminhoCompleto =
+        normalizarCaminho(
+            arquivo?.webkitRelativePath ||
+            arquivo?.name ||
+            ""
+        );
+
+
+    const partes =
+        caminhoCompleto
+            .split("/")
+            .filter(Boolean);
+
+
+    if (
+        partes[0] === raiz
+    ) {
+
+        partes.shift();
+
+    }
+
+
+    return partes.join(
+        "/"
+    );
+}
+
+
+function obterCaminhoIdentidade(
+    caminhoRelativo
+) {
+
+    const caminho =
+        normalizarCaminho(
+            caminhoRelativo
+        );
+
+
+    if (
+        raizEhBiblioteca
+    ) {
+
+        return caminho;
+
+    }
+
+
+    return combinarCaminho(
+        nomeRaizSelecionada,
+        caminho
+    );
+}
+
+
+function gerarIdCategoria(
+    caminhoIdentidade
+) {
+
+    return gerarIdEstavel(
+        "categoria|" +
+        caminhoIdentidade
+    );
+}
+
 
 function adicionarCaminhoEAncestrais(
     conjunto,
@@ -1293,8 +1487,192 @@ function adicionarCaminhoEAncestrais(
 }
 
 
+function obterCaminhoPai(
+    caminho
+) {
+
+    const partes =
+        normalizarCaminho(
+            caminho
+        )
+            .split("/")
+            .filter(Boolean);
+
+
+    partes.pop();
+
+
+    return partes.join(
+        "/"
+    );
+}
+
+
+function obterNomeFinal(
+    caminho
+) {
+
+    const partes =
+        normalizarCaminho(
+            caminho
+        )
+            .split("/")
+            .filter(Boolean);
+
+
+    return partes[
+        partes.length - 1
+    ] || "Quadrinho";
+}
+
+
+function combinarCaminho(
+    pasta,
+    arquivo
+) {
+
+    const a =
+        normalizarCaminho(
+            pasta
+        );
+
+    const b =
+        normalizarCaminho(
+            arquivo
+        );
+
+
+    if (!a) {
+        return b;
+    }
+
+
+    if (!b) {
+        return a;
+    }
+
+
+    return a + "/" + b;
+}
+
+
+function normalizarCaminho(
+    caminho
+) {
+
+    return String(
+        caminho || ""
+    )
+        .replace(
+            /\\/g,
+            "/"
+        )
+        .replace(
+            /^\/+|\/+$/g,
+            ""
+        );
+}
+
+
+function normalizarNomeComparacao(
+    nome
+) {
+
+    return String(
+        nome || ""
+    )
+        .normalize(
+            "NFD"
+        )
+        .replace(
+            /[\u0300-\u036f]/g,
+            ""
+        )
+        .toLowerCase()
+        .replace(
+            /[_-]+/g,
+            " "
+        )
+        .replace(
+            /\s+/g,
+            " "
+        )
+        .trim();
+}
+
+
+function ehNomeGenericoBiblioteca(
+    nome
+) {
+
+    return NOMES_RAIZ_BIBLIOTECA.has(
+        normalizarNomeComparacao(
+            nome
+        )
+    );
+}
+
+
 // ============================================================
-// IMAGEM
+// COMPATIBILIDADE COM O PROGRESSO DA V5
+// ============================================================
+
+function criarIdLegadoPasta(
+    caminho,
+    arquivos
+) {
+
+    const assinatura = [
+        "pasta",
+        caminho,
+        ...arquivos.map(
+            arquivo => [
+                arquivo?.webkitRelativePath ||
+                    arquivo?.name ||
+                    "",
+                arquivo?.size || 0,
+                arquivo?.lastModified || 0
+            ].join(
+                ":"
+            )
+        )
+    ].join(
+        "|"
+    );
+
+
+    return gerarHashFnv(
+        assinatura,
+        "hq-"
+    );
+}
+
+
+function criarIdLegadoCompactado(
+    pasta,
+    arquivo
+) {
+
+    const assinatura = [
+        "compactado",
+        pasta,
+        arquivo?.name || "",
+        arquivo?.size || 0,
+        arquivo?.lastModified || 0
+    ].join(
+        "|"
+    );
+
+
+    return gerarHashFnv(
+        assinatura,
+        "hq-"
+    );
+}
+
+
+// ============================================================
+// FORMATOS / ORDENAÇÃO
 // ============================================================
 
 function ehImagem(
@@ -1309,96 +1687,133 @@ function ehImagem(
 }
 
 
-// ============================================================
-// COMPACTADO
-// ============================================================
-
-function ehCompactado(
+function obterExtensao(
     nome
 ) {
 
-    return EXTENSOES_COMPACTADAS.has(
-        obterExtensao(
-            nome
+    const texto =
+        String(
+            nome || ""
+        );
+
+
+    const ponto =
+        texto.lastIndexOf(
+            "."
+        );
+
+
+    if (
+        ponto === -1
+    ) {
+        return "";
+    }
+
+
+    return texto
+        .slice(
+            ponto + 1
         )
-    );
+        .toLowerCase();
 }
 
 
-// ============================================================
-// ASSINATURA PASTA
-// ============================================================
-
-function criarAssinaturaPasta(
-    caminho,
-    arquivos
+function removerExtensao(
+    nome
 ) {
 
-    return [
-
-        "pasta",
-
-        caminho,
-
-        ...arquivos.map(
-            arquivo => {
-
-                return [
-
-                    arquivo.webkitRelativePath ||
-                        arquivo.name,
-
-                    arquivo.size,
-
-                    arquivo.lastModified
-
-                ].join(
-                    ":"
-                );
-
-            }
-        )
-
-    ].join(
-        "|"
+    return String(
+        nome || ""
+    ).replace(
+        /\.[^/.]+$/,
+        ""
     );
 }
 
 
-// ============================================================
-// ASSINATURA ZIP / CBZ
-// ============================================================
-
-function criarAssinaturaCompactado(
-    pasta,
-    arquivo
+function ordenarArquivos(
+    a,
+    b
 ) {
 
-    return [
-
-        "compactado",
-
-        pasta,
-
-        arquivo.name,
-
-        arquivo.size,
-
-        arquivo.lastModified
-
-    ].join(
-        "|"
+    return compararNatural(
+        a?.webkitRelativePath ||
+            a?.name ||
+            "",
+        b?.webkitRelativePath ||
+            b?.name ||
+            ""
     );
 }
 
 
-// ============================================================
-// ID ESTÁVEL
-// ============================================================
+function ordenarCaminhosPorNivel(
+    a,
+    b
+) {
+
+    const caminhoA =
+        String(
+            a ?? ""
+        );
+
+    const caminhoB =
+        String(
+            b ?? ""
+        );
+
+
+    const nivelA =
+        caminhoA
+            .split("/")
+            .filter(Boolean)
+            .length;
+
+
+    const nivelB =
+        caminhoB
+            .split("/")
+            .filter(Boolean)
+            .length;
+
+
+    if (
+        nivelA !== nivelB
+    ) {
+
+        return nivelA - nivelB;
+
+    }
+
+
+    return compararNatural(
+        caminhoA,
+        caminhoB
+    );
+}
+
 
 function gerarIdEstavel(
     texto
 ) {
+
+    return gerarHashFnv(
+        texto,
+        "item-"
+    );
+}
+
+
+function gerarHashFnv(
+    texto,
+    prefixo
+) {
+
+    const valor =
+        String(
+            texto || ""
+        );
+
 
     let hash =
         2166136261;
@@ -1406,12 +1821,12 @@ function gerarIdEstavel(
 
     for (
         let i = 0;
-        i < texto.length;
+        i < valor.length;
         i++
     ) {
 
         hash ^=
-            texto.charCodeAt(
+            valor.charCodeAt(
                 i
             );
 
@@ -1426,7 +1841,7 @@ function gerarIdEstavel(
 
 
     return (
-        "hq-" +
+        prefixo +
         (
             hash >>> 0
         ).toString(
@@ -1436,245 +1851,6 @@ function gerarIdEstavel(
 }
 
 
-// ============================================================
-// ORDENAÇÃO DE ARQUIVOS
-// ============================================================
-
-function ordenarArquivos(
-    a,
-    b
-) {
-
-    const nomeA =
-        a.webkitRelativePath ||
-        a.name;
-
-
-    const nomeB =
-        b.webkitRelativePath ||
-        b.name;
-
-
-    return nomeA.localeCompare(
-        nomeB,
-        undefined,
-        {
-            numeric: true,
-            sensitivity: "base"
-        }
-    );
-}
-
-
-// ============================================================
-// ORDENAÇÃO DE CAMINHOS POR PROFUNDIDADE
-// ============================================================
-
-function ordenarCaminhosPorNivel(
-    a,
-    b
-) {
-
-    const nivelA =
-        a
-            .split("/")
-            .filter(Boolean)
-            .length;
-
-
-    const nivelB =
-        b
-            .split("/")
-            .filter(Boolean)
-            .length;
-
-
-    if (
-        nivelA !== nivelB
-    ) {
-
-        return nivelA -
-            nivelB;
-
-    }
-
-
-    return a.localeCompare(
-        b,
-        undefined,
-        {
-            numeric: true,
-            sensitivity: "base"
-        }
-    );
-}
-
-
-// ============================================================
-// CAMINHO PAI
-// ============================================================
-
-function obterCaminhoPai(
-    caminho
-) {
-
-    caminho =
-        normalizarCaminho(
-            caminho
-        );
-
-
-    if (
-        caminho === ""
-    ) {
-
-        return "";
-
-    }
-
-
-    const partes =
-        caminho
-            .split("/")
-            .filter(Boolean);
-
-
-    partes.pop();
-
-
-    return partes.join(
-        "/"
-    );
-}
-
-
-// ============================================================
-// ÚLTIMO NOME
-// ============================================================
-
-function obterNomeFinal(
-    caminho
-) {
-
-    const partes =
-        normalizarCaminho(
-            caminho
-        )
-            .split("/")
-            .filter(Boolean);
-
-
-    return (
-        partes[
-            partes.length - 1
-        ] ||
-        "Quadrinho"
-    );
-}
-
-
-// ============================================================
-// COMBINAR CAMINHO
-// ============================================================
-
-function combinarCaminho(
-    pasta,
-    arquivo
-) {
-
-    if (
-        !pasta
-    ) {
-
-        return arquivo;
-
-    }
-
-
-    return (
-        pasta +
-        "/" +
-        arquivo
-    );
-}
-
-
-// ============================================================
-// NORMALIZAR CAMINHO
-// ============================================================
-
-function normalizarCaminho(
-    caminho
-) {
-
-    return String(
-        caminho || ""
-    )
-        .replace(
-            /\\/g,
-            "/"
-        )
-        .replace(
-            /^\/+/,
-            ""
-        )
-        .replace(
-            /\/+$/,
-            ""
-        );
-}
-
-
-// ============================================================
-// EXTENSÃO
-// ============================================================
-
-function obterExtensao(
-    nome
-) {
-
-    const ponto =
-        nome.lastIndexOf(
-            "."
-        );
-
-
-    if (
-        ponto === -1
-    ) {
-
-        return "";
-
-    }
-
-
-    return nome
-        .slice(
-            ponto + 1
-        )
-        .toLowerCase();
-}
-
-
-// ============================================================
-// REMOVER EXTENSÃO
-// ============================================================
-
-function removerExtensao(
-    nome
-) {
-
-    return nome.replace(
-        /\.[^/.]+$/,
-        ""
-    );
-}
-
-
-// ============================================================
-// LIMITAR PÁGINA
-// ============================================================
-
 function limitarPagina(
     pagina,
     total
@@ -1683,9 +1859,7 @@ function limitarPagina(
     if (
         total <= 0
     ) {
-
         return 0;
-
     }
 
 
@@ -1701,18 +1875,13 @@ function limitarPagina(
 }
 
 
-// ============================================================
-// CALLBACK
-// ============================================================
-
 function atualizarMensagem(
     callback,
     mensagem
 ) {
 
     if (
-        typeof callback ===
-        "function"
+        typeof callback === "function"
     ) {
 
         callback(

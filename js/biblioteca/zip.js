@@ -42,6 +42,16 @@ const EXTENSOES_IMAGEM =
     ]);
 
 
+const COMPARADOR_NATURAL =
+    new Intl.Collator(
+        "pt-BR",
+        {
+            numeric: true,
+            sensitivity: "base"
+        }
+    );
+
+
 // ============================================================
 // LISTAR IMAGENS DO ZIP
 // ============================================================
@@ -273,8 +283,8 @@ export async function listarImagensZip(
     entradas.sort(
         (a, b) =>
             ordenarNatural(
-                a.nome,
-                b.nome
+                a?.nome,
+                b?.nome
             )
     );
 
@@ -571,8 +581,15 @@ function ehArquivoImagem(
     nome
 ) {
 
+    const nomeSeguro =
+        String(
+            nome ??
+            ""
+        );
+
+
     const nomeLimpo =
-        nome
+        nomeSeguro
             .split("?")[0]
             .split("#")[0];
 
@@ -615,7 +632,10 @@ function descobrirMime(
 ) {
 
     const extensao =
-        nome
+        String(
+            nome ??
+            ""
+        )
             .split(".")
             .pop()
             ?.toLowerCase();
@@ -727,12 +747,8 @@ function ordenarNatural(
     b
 ) {
 
-    return a.localeCompare(
-        b,
-        undefined,
-        {
-            numeric: true,
-            sensitivity: "base"
-        }
+    return COMPARADOR_NATURAL.compare(
+        String(a ?? ""),
+        String(b ?? "")
     );
 }

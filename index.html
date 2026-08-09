@@ -17,43 +17,17 @@
 
     <title>Minha Biblioteca</title>
 
-    <link
-        rel="manifest"
-        href="./manifest.json"
-    >
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" href="./assets/icons/icon.svg" type="image/svg+xml">
 
-    <link
-        rel="icon"
-        href="./assets/icons/icon.svg"
-        type="image/svg+xml"
-    >
-
-    <link
-        rel="stylesheet"
-        href="./css/global.css"
-    >
-
-    <link
-        rel="stylesheet"
-        href="./css/biblioteca.css"
-    >
-
-    <link
-        rel="stylesheet"
-        href="./css/leitor.css"
-    >
+    <link rel="stylesheet" href="./css/global.css">
+    <link rel="stylesheet" href="./css/biblioteca.css">
+    <link rel="stylesheet" href="./css/leitor.css">
 </head>
 
 <body>
 
-    <!-- ========================================================= -->
-    <!-- BIBLIOTECA                                                 -->
-    <!-- ========================================================= -->
-
-    <div
-        id="appBiblioteca"
-        class="app-biblioteca"
-    >
+    <div id="appBiblioteca" class="app-biblioteca">
 
         <header class="topbar">
 
@@ -64,21 +38,23 @@
                 </div>
 
                 <div>
-
-                    <h1>
-                        Minha Biblioteca
-                    </h1>
-
-                    <p>
-                        Leitor de quadrinhos
-                    </p>
-
+                    <h1>Minha Biblioteca</h1>
+                    <p>Leitor de quadrinhos</p>
                 </div>
 
             </div>
 
 
             <div class="topbar-acoes">
+
+                <button
+                    id="btnAtualizarBiblioteca"
+                    class="btn btn-secondary"
+                    type="button"
+                    hidden
+                >
+                    ↻ Atualizar
+                </button>
 
                 <button
                     id="btnImportarQuadrinhos"
@@ -95,10 +71,6 @@
 
         <main class="conteudo">
 
-            <!-- ================================================= -->
-            <!-- NAVEGAÇÃO DA BIBLIOTECA                           -->
-            <!-- ================================================= -->
-
             <section class="biblioteca-navegacao">
 
                 <div class="biblioteca-navegacao-esquerda">
@@ -112,52 +84,45 @@
                         ←
                     </button>
 
-
                     <div>
-
-                        <h2 id="tituloCategoriaAtual">
-                            Biblioteca
-                        </h2>
-
-                        <p id="contadorBiblioteca">
-                            Nenhuma biblioteca carregada
-                        </p>
-
+                        <h2 id="tituloCategoriaAtual">Biblioteca</h2>
+                        <p id="contadorBiblioteca">Nenhuma biblioteca carregada</p>
                     </div>
 
                 </div>
 
 
-                <div
-                    id="breadcrumbBiblioteca"
-                    class="breadcrumb-biblioteca"
-                >
+                <div class="biblioteca-navegacao-direita">
+
+                    <button
+                        id="btnMostrarOcultos"
+                        class="btn-ocultos"
+                        type="button"
+                        hidden
+                    >
+                        Mostrar ocultos
+                    </button>
+
+                    <div
+                        id="breadcrumbBiblioteca"
+                        class="breadcrumb-biblioteca"
+                    ></div>
+
                 </div>
 
             </section>
 
 
-            <!-- ================================================= -->
-            <!-- VAZIO                                             -->
-            <!-- ================================================= -->
+            <section id="estadoVazio" class="estado-vazio">
 
-            <section
-                id="estadoVazio"
-                class="estado-vazio"
-            >
+                <div class="estado-vazio-icone">📚</div>
 
-                <div class="estado-vazio-icone">
-                    📚
-                </div>
-
-                <h2>
-                    Sua biblioteca está vazia
-                </h2>
+                <h2>Sua biblioteca está vazia</h2>
 
                 <p>
                     Selecione sua pasta principal de quadrinhos.
-                    O aplicativo identificará automaticamente séries,
-                    subpastas, histórias, arquivos ZIP e CBZ.
+                    O aplicativo identificará automaticamente obras,
+                    histórias, pastas de imagens, ZIP, CBZ e PDF.
                 </p>
 
                 <button
@@ -171,36 +136,38 @@
             </section>
 
 
-            <!-- ================================================= -->
-            <!-- GRID                                              -->
-            <!-- ================================================= -->
+            <section
+                id="secaoContinuarLendo"
+                class="continuar-secao"
+                hidden
+            >
+
+                <div class="continuar-cabecalho">
+                    <h3>Continuar lendo</h3>
+                </div>
+
+                <div
+                    id="continuarLendoGrid"
+                    class="continuar-grid"
+                ></div>
+
+            </section>
+
 
             <section
                 id="bibliotecaGrid"
                 class="biblioteca-grid"
                 hidden
-            >
-            </section>
+            ></section>
 
         </main>
 
     </div>
 
 
-    <!-- ========================================================= -->
-    <!-- LEITOR                                                     -->
-    <!-- ========================================================= -->
+    <div id="appLeitor" class="app-leitor" hidden>
 
-    <div
-        id="appLeitor"
-        class="app-leitor"
-        hidden
-    >
-
-        <header
-            id="leitorTopbar"
-            class="leitor-topbar"
-        >
+        <header id="leitorTopbar" class="leitor-topbar">
 
             <button
                 id="btnFecharLeitor"
@@ -211,19 +178,10 @@
                 ←
             </button>
 
-
             <div class="leitor-titulo-area">
-
-                <strong id="leitorTitulo">
-                    Quadrinho
-                </strong>
-
-                <span id="leitorPaginaTopo">
-                    1 / 1
-                </span>
-
+                <strong id="leitorTitulo">Quadrinho</strong>
+                <span id="leitorPaginaTopo">1 / 1</span>
             </div>
-
 
             <div class="leitor-topbar-acoes">
 
@@ -259,10 +217,7 @@
         </header>
 
 
-        <main
-            id="leitorPalco"
-            class="leitor-palco"
-        >
+        <main id="leitorPalco" class="leitor-palco">
 
             <button
                 id="btnPaginaAnterior"
@@ -273,11 +228,7 @@
                 ‹
             </button>
 
-
-            <div
-                id="imagemContainer"
-                class="imagem-container"
-            >
+            <div id="imagemContainer" class="imagem-container">
 
                 <img
                     id="imagemPagina"
@@ -285,7 +236,6 @@
                     alt="Página do quadrinho"
                     draggable="false"
                 >
-
 
                 <div
                     id="leitorCarregando"
@@ -296,7 +246,6 @@
                 </div>
 
             </div>
-
 
             <button
                 id="btnProximaPagina"
@@ -310,34 +259,21 @@
         </main>
 
 
-        <footer
-            id="leitorRodape"
-            class="leitor-rodape"
-        >
+        <footer id="leitorRodape" class="leitor-rodape">
 
-            <span id="leitorPaginaRodape">
-                Página 1 de 1
-            </span>
-
+            <span id="leitorPaginaRodape">Página 1 de 1</span>
 
             <div class="barra-progresso">
-
                 <div
                     id="barraProgressoLeitura"
                     class="barra-progresso-preenchimento"
-                >
-                </div>
-
+                ></div>
             </div>
 
         </footer>
 
     </div>
 
-
-    <!-- ========================================================= -->
-    <!-- ÚNICO INPUT                                                -->
-    <!-- ========================================================= -->
 
     <input
         id="inputBiblioteca"
@@ -349,23 +285,13 @@
     >
 
 
-    <!-- ========================================================= -->
-    <!-- MODAL                                                      -->
-    <!-- ========================================================= -->
-
-    <div
-        id="modalImportando"
-        class="modal-overlay"
-        hidden
-    >
+    <div id="modalImportando" class="modal-overlay" hidden>
 
         <div class="modal-importando">
 
             <div class="spinner"></div>
 
-            <h2>
-                Lendo biblioteca
-            </h2>
+            <h2>Lendo biblioteca</h2>
 
             <p id="textoImportacao">
                 Analisando arquivos...
@@ -376,10 +302,7 @@
     </div>
 
 
-    <script
-        type="module"
-        src="./js/app.js"
-    ></script>
+    <script type="module" src="./js/app.js"></script>
 
 </body>
 </html>

@@ -23,29 +23,34 @@ const btnImportarQuadrinhos =
         "btnImportarQuadrinhos"
     );
 
-
 const btnImportarVazio =
     document.getElementById(
         "btnImportarVazio"
     );
 
+const btnAtualizarBiblioteca =
+    document.getElementById(
+        "btnAtualizarBiblioteca"
+    );
 
 const inputBiblioteca =
     document.getElementById(
         "inputBiblioteca"
     );
 
-
 const modalImportando =
     document.getElementById(
         "modalImportando"
     );
 
-
 const textoImportacao =
     document.getElementById(
         "textoImportacao"
     );
+
+
+let modoSelecao =
+    "importar";
 
 
 // ============================================================
@@ -82,9 +87,7 @@ async function iniciar() {
 
     configurarEventos();
 
-
     await renderizarBiblioteca();
-
 
     registrarServiceWorker();
 }
@@ -98,13 +101,25 @@ function configurarEventos() {
 
     btnImportarQuadrinhos.addEventListener(
         "click",
-        selecionarBiblioteca
+        () => selecionarBiblioteca(
+            "importar"
+        )
     );
 
 
     btnImportarVazio.addEventListener(
         "click",
-        selecionarBiblioteca
+        () => selecionarBiblioteca(
+            "importar"
+        )
+    );
+
+
+    btnAtualizarBiblioteca.addEventListener(
+        "click",
+        () => selecionarBiblioteca(
+            "atualizar"
+        )
     );
 
 
@@ -115,18 +130,19 @@ function configurarEventos() {
 }
 
 
-// ============================================================
-// SELECIONAR
-// ============================================================
+function selecionarBiblioteca(
+    modo
+) {
 
-function selecionarBiblioteca() {
+    modoSelecao =
+        modo;
 
     inputBiblioteca.click();
 }
 
 
 // ============================================================
-// PROCESSAR BIBLIOTECA
+// IMPORTAR / ATUALIZAR
 // ============================================================
 
 async function processarBiblioteca(
@@ -141,14 +157,14 @@ async function processarBiblioteca(
         !arquivos ||
         arquivos.length === 0
     ) {
-
         return;
-
     }
 
 
     abrirModal(
-        "Analisando estrutura da biblioteca..."
+        modoSelecao === "atualizar"
+            ? "Atualizando biblioteca..."
+            : "Analisando estrutura da biblioteca..."
     );
 
 
@@ -158,6 +174,10 @@ async function processarBiblioteca(
             arquivos,
             atualizarTextoModal
         );
+
+
+        btnAtualizarBiblioteca.hidden =
+            false;
 
 
         await abrirRaizBiblioteca();
@@ -180,7 +200,6 @@ async function processarBiblioteca(
 
         fecharModal();
 
-
         inputBiblioteca.value =
             "";
 
@@ -198,7 +217,6 @@ function abrirModal(
 
     textoImportacao.textContent =
         mensagem;
-
 
     modalImportando.hidden =
         false;
@@ -228,14 +246,9 @@ function fecharModal() {
 function registrarServiceWorker() {
 
     if (
-        !(
-            "serviceWorker"
-            in navigator
-        )
+        !("serviceWorker" in navigator)
     ) {
-
         return;
-
     }
 
 
@@ -243,8 +256,7 @@ function registrarServiceWorker() {
         "load",
         () => {
 
-            navigator
-                .serviceWorker
+            navigator.serviceWorker
                 .register(
                     "./service-worker.js"
                 )
@@ -273,9 +285,5 @@ function registrarServiceWorker() {
     );
 }
 
-
-// ============================================================
-// START
-// ============================================================
 
 iniciar();
